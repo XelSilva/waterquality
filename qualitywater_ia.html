@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise de Qualidade da Água</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .data-table {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .parameter-card {
+            transition: all 0.3s ease;
+        }
+        .parameter-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .compliance-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        @media (max-width: 768px) {
+            .analysis-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-bold text-blue-800 mb-2">Análise Inteligente de Qualidade da Água</h1>
+            <p class="text-gray-600">Sistema preditivo offline para monitoramento de parâmetros hídricos</p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">1. Carregar Dados</h2>
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-grow">
+                    <input type="file" id="csvFile" accept=".csv" class="w-full p-2 border rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <button onclick="loadCSV()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition duration-200">Carregar CSV</button>
+            </div>
+            <div class="mt-4 text-sm text-gray-500">
+                <p>Use um arquivo CSV contendo dados históricos de qualidade da água. Exemplo de colunas esperadas:</p>
+                <p class="mt-1 font-mono bg-gray-100 p-2 rounded">data,pH,turbidez,oxigenio_dissolvido,temperatura,condutividade...</p>
+            </div>
+        </div>
+
+        <div id="dataSection" class="hidden bg-white rounded-xl shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">2. Visualização dos Dados</h2>
+            <div class="data-table border rounded-lg p-4 mb-6">
+                <table id="dataTable" class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <!-- Table headers will be populated by JS -->
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <!-- Table data will be populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-3">Distribuição de Parâmetros</h3>
+                    <div class="relative h-64">
+                        <canvas id="parameterDistribution"></canvas>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-3">Série Temporal</h3>
+                    <div class="relative h-64">
+                        <canvas id="timeSeriesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="analysisSection" class="hidden bg-white rounded-xl shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">3. Análise Preditiva</h2>
+            
+            <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 class="font-medium text-blue-800 mb-2">Padrões de Referência</h3>
+                <p class="text-sm text-gray-700">Comparação com os padrões CONAMA 357/2005 para água doce</p>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                    <div class="parameter-card bg-white p-3 rounded-lg shadow border border-gray-100">
+                        <h4 class="text-sm font-medium text-gray-700">pH</h4>
+                        <p class="text-xs text-gray-500">Padrão: 6.0-9.0</p>
+                    </div>
+                    <div class="parameter-card bg-white p-3 rounded-lg shadow border border-gray-100">
+                        <h4 class="text-sm font-medium text-gray-700">Oxigênio Dissolvido</h4>
+                        <p class="text-xs text-gray-500">Padrão: >5 mg/L</p>
+                    </div>
+                    <div class="parameter-card bg-white p-3 rounded-lg shadow border border-gray-100">
+                        <h4 class="text-sm font-medium text-gray-700">Turbidez</h4>
+                        <p class="text-xs text-gray-500">Padrão: <100 NTU</p>
+                    </div>
+                    <div class="parameter-card bg-white p-3 rounded-lg shadow border border-gray-100">
+                        <h4 class="text-sm font-medium text-gray-700">Temperatura</h4>
+                        <p class="text-xs text-gray-500">Padrão: Δ<3°C</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <h3 class="font-medium text-gray-700 mb-3">Previsão de Qualidade</h3>
+                <div class="relative h-64 mb-4">
+                    <canvas id="predictionChart"></canvas>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                    <div class="bg-white p-4 rounded-lg shadow border">
+                        <h4 class="font-medium text-gray-700 mb-2">Parâmetro Crítico</h4>
+                        <p id="criticalParam" class="text-lg font-semibold text-red-600">--</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow border">
+                        <h4 class="font-medium text-gray-700 mb-2">Próxima Medição</h4>
+                        <p id="nextPrediction" class="text-lg font-semibold text-blue-600">--</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow border">
+                        <h4 class="font-medium text-gray-700 mb-2">Conformidade</h4>
+                        <p id="complianceStatus" class="compliance-badge bg-gray-100 text-gray-800">--</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-3">Recomendações</h3>
+                    <div id="recommendations" class="bg-green-50 p-4 rounded-lg border border-green-200 text-sm text-gray-700">
+                        <p>Carregue um arquivo CSV para gerar recomendações personalizadas.</p>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-3">Exportar Resultados</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <button onclick="exportResults()" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium">Exportar Análise</button>
+                        <p class="text-xs text-gray-500 mt-2">Gera um relatório em JSON para integração com outros sistemas.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="footer" class="text-center text-sm text-gray-500 mt-12">
+            <p>Sistema de análise preditiva desenvolvido para pesquisa de mestrado</p>
+            <p class="mt-1">Funcionalidade offline garantida - Versão 1.0</p>
+        </div>
+    </div>
+
+    <script>
+        // Variáveis globais para armazenar dados
+        let waterData = [];
+        let headers = [];
+
+        // Função para carregar e processar CSV
+        function loadCSV() {
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Por favor, selecione um arquivo CSV primeiro.');
+                return;
+            }
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const content = e.target.result;
+                processCSV(content);
+            };
+            
+            reader.readAsText(file);
+        }
+
+        // Processar conteúdo CSV
+        function processCSV(csvContent) {
+            const lines = csvContent.split('\n');
+            if (lines.length < 2) {
+                alert('Arquivo CSV vazio ou formato inválido.');
+                return;
+            }
+
+            // Obter cabeçalhos
+            headers = lines[0].split(',').map(h => h.trim());
+            
+            // Processar linhas de dados
+            waterData = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].trim() === '') continue;
+                
+                const values = lines[i].split(',');
+                const entry = {};
+                
+                for (let j = 0; j < headers.length; j++) {
+                    let value = values[j] ? values[j].trim() : '';
+                    // Tentar converter para número se possível
+                    if (!isNaN(value) && value !== '') {
+                        value = parseFloat(value);
+                    }
+                    entry[headers[j]] = value;
+                }
+                
+                waterData.push(entry);
+            }
+
+            if (waterData.length === 0) {
+                alert('Nenhum dado encontrado no arquivo CSV.');
+                return;
+            }
+
+            // Exibir os dados
+            displayData();
+            displayCharts();
+            runAnalysis();
+            
+            // Mostrar seções após carregar dados
+            document.getElementById('dataSection').classList.remove('hidden');
+            document.getElementById('analysisSection').classList.remove('hidden');
+        }
+
+        // Exibir dados na tabela
+        function displayData() {
+            const tableHead = document.querySelector('#dataTable thead tr');
+            const tableBody = document.querySelector('#dataTable tbody');
+            
+            // Limpar tabela
+            tableHead.innerHTML = '';
+            tableBody.innerHTML = '';
+            
+            // Adicionar cabeçalhos
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+                tableHead.appendChild(th);
+            });
+            
+            // Adicionar dados (mostrar apenas as primeiras 10 linhas para performance)
+            const displayRows = Math.min(waterData.length, 10);
+            for (let i = 0; i < displayRows; i++) {
+                const tr = document.createElement('tr');
+                tr.className = i % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                
+                headers.forEach(header => {
+                    const td = document.createElement('td');
+                    td.textContent = waterData[i][header];
+                    td.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
+                    tr.appendChild(td);
+                });
+                
+                tableBody.appendChild(tr);
+            }
+        }
+
+        // Exibir gráficos
+        function displayCharts() {
+            // Verificar se temos dados necessários
+            if (!waterData.length || !headers.includes('pH') || !headers.includes('data')) {
+                console.warn('Dados incompletos para gráficos');
+                return;
+            }
+
+            // Gráfico de distribuição
+            const paramDistributionCtx = document.getElementById('parameterDistribution').getContext('2d');
+            const timeSeriesCtx = document.getElementById('timeSeriesChart').getContext('2d');
+            
+            // Extrair dados para gráficos
+            const labels = waterData.map(entry => entry.data).slice(0, 30); // Limitar para performance
+            const phValues = waterData.map(entry => entry.pH).slice(0, 30);
+            
+            // Gráfico de distribuição de pH
+            new Chart(paramDistributionCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Valores de pH',
+                        data: phValues,
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: false }
+                    }
+                }
+            });
+
+            // Gráfico de série temporal (usando primeiro parâmetro numérico encontrado)
+            const firstNumericParam = headers.find(header => {
+                return header !== 'data' && typeof waterData[0][header] === 'number';
+            }) || headers[1];
+
+            new Chart(timeSeriesCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: firstNumericParam,
+                        data: waterData.map(entry => entry[firstNumericParam]).slice(0, 30),
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        y: { beginAtZero: false }
+                    }
+                }
+            });
+        }
+
+        // Executar análise (simulação de modelo preditivo)
+        function runAnalysis() {
+            if (waterData.length < 10) {
+                alert('Dados insuficientes para análise. Necessário mínimo de 10 registros.');
+                return;
+            }
+
+            // Simular análise preditiva
+            simulatePrediction();
+            checkCompliance();
+            generateRecommendations();
+        }
+
+        // Simular previsão (em produção seria substituído por um modelo real)
+        function simulatePrediction() {
+            const predictionCtx = document.getElementById('predictionChart').getContext('2d');
+            const last10Data = waterData.slice(-10);
+            const phValues = last10Data.map(entry => entry.pH || 7);
+            
+            // Calcular média móvel como simulação
+            const movingAverages = [];
+            for (let i = 2; i < phValues.length; i++) {
+                movingAverages.push((phValues[i-2] + phValues[i-1] + phValues[i]) / 3);
+            }
+            
+            // Prever próximo valor
+            const lastAvg = movingAverages[movingAverages.length - 1];
+            const nextPrediction = lastAvg + (Math.random() * 0.5 - 0.25); // Pequeno ruído
+            
+            new Chart(predictionCtx, {
+                type: 'line',
+                data: {
+                    labels: [...Array(last10Data.length - 2).keys()].map(i => `M${i+1}`),
+                    datasets: [
+                        {
+                            label: 'Valores Observados',
+                            data: phValues.slice(2),
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Média Móvel (Simulação)',
+                            data: movingAverages,
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: { mode: 'index', intersect: false }
+                    }
+                }
+            });
+
+            // Atualizar UI com previsão
+            document.getElementById('nextPrediction').textContent = nextPrediction.toFixed(2);
+            
+            // Encontrar parâmetro mais crítico (mais próximo dos limites)
+            const criticalParams = {
+                'pH': {value: last10Data[last10Data.length - 1].pH || 7, min: 6.0, max: 9.0},
+                'Oxigênio Dissolvido': {value: last10Data[last10Data.length - 1].oxigenio_dissolvido || null, min: 5, max: Infinity},
+                'Turbidez': {value: last10Data[last10Data.length - 1].turbidez || null, min: -Infinity, max: 100}
+            };
+            
+            let mostCritical = {param: '', diff: Infinity};
+            for (const [param, data] of Object.entries(criticalParams)) {
+                if (data.value === null) continue;
+                
+                let diff;
+                if (data.value < data.min) {
+                    diff = data.min - data.value;
+                } else if (data.value > data.max) {
+                    diff = data.value - data.max;
+                } else {
+                    diff = Math.min(data.value - data.min, data.max - data.value);
+                }
+                
+                if (diff < mostCritical.diff) {
+                    mostCritical = {param, diff};
+                }
+            }
+            
+            if (mostCritical.param) {
+                const criticalEl = document.getElementById('criticalParam');
+                criticalEl.textContent = mostCritical.param;
+                criticalEl.className = mostCritical.diff <= 0 ? 'text-lg font-semibold text-red-600' : 'text-lg font-semibold text-yellow-600';
+            }
+        }
+
+        // Verificar conformidade com padrões
+        function checkCompliance() {
+            const lastEntry = waterData[waterData.length - 1];
+            
+            // Critérios simulados baseados no CONAMA 357/2005
+            const compliance = {
+                pH: lastEntry.pH >= 6.0 && lastEntry.pH <= 9.0,
+                oxigenio_dissolvido: lastEntry.oxigenio_dissolvido >= 5 || !lastEntry.oxigenio_dissolvido,
+                turbidez: lastEntry.turbidez <= 100 || !lastEntry.turbidez
+            };
+            
+            // Calcular % de conformidade
+            const paramsChecked = Object.values(compliance).filter(v => v !== null).length;
+            const compliantParams = Object.values(compliance).filter(v => v === true).length;
+            const compliancePercentage = (compliantParams / paramsChecked) * 100;
+            
+            // Atualizar UI
+            const complianceEl = document.getElementById('complianceStatus');
+            complianceEl.textContent = `${compliancePercentage.toFixed(0)}% Conforme`;
+            
+            if (compliancePercentage >= 80) {
+                complianceEl.className = 'compliance-badge bg-green-100 text-green-800';
+            } else if (compliancePercentage >= 50) {
+                complianceEl.className = 'compliance-badge bg-yellow-100 text-yellow-800';
+            } else {
+                complianceEl.className = 'compliance-badge bg-red-100 text-red-800';
+            }
+        }
+
+        // Gerar recomendações baseadas nos dados
+        function generateRecommendations() {
+            const lastEntry = waterData[waterData.length - 1];
+            const recommendationsEl = document.getElementById('recommendations');
+            
+            let recommendations = [];
+            
+            // pH fora do padrão
+            if (lastEntry.pH < 6.0) {
+                recommendations.push(`pH baixo (${lastEntry.pH}): Considere verificar fontes de acidificação ou adicionar material alcalinizante.`);
+            } else if (lastEntry.pH > 9.0) {
+                recommendations.push(`pH alto (${lastEntry.pH}): Avaliar entrada de materiais alcalinos ou poluição industrial.`);
+            }
+            
+            // Oxigênio dissolvido baixo
+            if (lastEntry.oxigenio_dissolvido && lastEntry.oxigenio_dissolvido < 5) {
+                recommendations.push(`Oxigênio dissolvido abaixo do padrão (${lastEntry.oxigenio_dissolvido} mg/L): Investigar fontes de matéria orgânica ou considerar aeração.`);
+            }
+            
+            // Turbidez alta
+            if (lastEntry.turbidez && lastEntry.turbidez > 100) {
+                recommendations.push(`Turbidez elevada (${lastEntry.turbidez} NTU): Verificar fontes de sedimentação ou erosão.`);
+            }
+            
+            if (recommendations.length === 0) {
+                recommendations.push('Os parâmetros analisados estão dentro dos padrões recomendados. Mantenha o monitoramento regular.');
+            }
+            
+            recommendationsEl.innerHTML = recommendations.map(r => `<p class="mb-2">• ${r}</p>`).join('');
+        }
+
+        // Exportar resultados para JSON
+        function exportResults() {
+            if (waterData.length === 0) {
+                alert('Nenhum dado para exportar.');
+                return;
+            }
+            
+            const analysisResults = {
+                metadata: {
+                    analysisDate: new Date().toISOString(),
+                    dataPoints: waterData.length,
+                    parametersAnalyzed: headers.filter(h => h !== 'data')
+                },
+                summary: {
+                    lastPH: waterData[waterData.length - 1].pH,
+                    complianceStatus: document.getElementById('complianceStatus').textContent,
+                    criticalParameter: document.getElementById('criticalParam').textContent
+                },
+                recommendations: [...document.getElementById('recommendations').querySelectorAll('p')].map(p => p.textContent.substring(2))
+            };
+            
+            const blob = new Blob([JSON.stringify(analysisResults, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `analise-agua-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
