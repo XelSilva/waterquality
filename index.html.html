@@ -55,6 +55,10 @@
 
         <div id="dataSection" class="hidden bg-white rounded-xl shadow-md p-6 mb-8">
             <h2 class="text-xl font-semibold text-gray-800 mb-4">2. Visualização dos Dados</h2>
+            <!-- <div class="mt-4 text-sm text-gray-500">
+                <p>O sistema se adaptará automaticamente às colunas presentes no seu arquivo. Exemplo de formato:</p>
+                <p class="mt-1 font-mono bg-gray-100 p-2 rounded">data,pH,oxigenio_dissolvido,turbidez,temperatura,condutividade,outros_parametros...</p>
+            </div> -->
             <div class="data-table border rounded-lg p-4 mb-6">
                 <table id="dataTable" class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -242,7 +246,7 @@
             });
             
             // Adicionar dados (mostrar apenas as primeiras 10 linhas para performance)
-            const displayRows = Math.min(waterData.length, 10);
+            const displayRows = Math.min(waterData.length, 1000000);
             for (let i = 0; i < displayRows; i++) {
                 const tr = document.createElement('tr');
                 tr.className = i % 2 === 0 ? 'bg-white' : 'bg-gray-50';
